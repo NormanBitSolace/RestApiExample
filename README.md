@@ -1,4 +1,5 @@
-# A simple Swift approach for accessing a REST API
+# A simple example of implementing a REST API with Swift
+
 This project provides an example of accessing a REST API and populating a table view with the results. The UI is unaware of the data source, data could be provided by a database, iCloud, local storage, REST API, or a combination of them. This is accomplished by putting all of these concerns behind a protocol. This app uses a protocol named PetService which provides a way to get a list of pets, and a way to get each pet’s veterinarian (vet).
 ```swift
 protocol PetService: class {
@@ -8,11 +9,14 @@ protocol PetService: class {
 ```
 Each view model has a pet name and a vet name used to populate table rows.
 
+
 ![Image of table view](https://user-images.githubusercontent.com/2135673/54883508-66fa1c80-4e23-11e9-94fb-828dc68057cc.png)
+
 
 ## Behind the PetService protocol, the data layer
 
 ### JSON Models
+
 The implementation of the `PetService` protocol knows that it's working with a REST API and what urls are required to access pet info and each pet’s vet info.  The JSON models conform to the structure and types defined by the API service, these are often determined by someone else and out of our control. These are the models this app uses for the information returned by the API.
 ```swift
 struct PetJsonModel: Codable {
@@ -30,6 +34,7 @@ struct VetJsonModel: Codable {
 APIs can change, especially during development. Each field is an optional so that if part of the data is unexpectedly missing the `JSONDecoder` won’t throw an exception. The `JSONDecoder` exceptions typically don’t have the information to determine the issue with the returned data's structure. Later, when creating view model from the JSON model we can use failing initializers and `guard` statements to provide feedback on missing fields as well as determine if the data is still useable.
 
 ### Fetching data and binding to the JSON models
+
 As mentioned, the API urls are known. From the url we can make an async request for data. This is a very common task and warrants extending URL:
 ```swift
 extension URL {
@@ -114,6 +119,7 @@ petService.pets { pets in
 }
 ```
 ## Creating view models with PetService
+
 We now have a way to access pets from a remote API service. Unfortunately, the data returned is incomplete and not structured ideally for our UI. It’s common problem that fulfilling a view’s data requirements requires more than one type of JSON model. A view model should provide the minimum data required for a UIView to render itself in it’s current state. The UI requires that each table row show a pet name and a vet name and title, thus the view model is defined:
 ```swift
 struct PetVetCellViewModel: Codable {
@@ -123,8 +129,10 @@ struct PetVetCellViewModel: Codable {
 ```
 We and we still need to use the pet's `vetId` to get the vet’s info. We can use the same approach we used to fetch the `VetJsonModel` as we did to fetch the `PetJsonModel`. The plan is to iterate over each pet and use it’s vetId to make a call to the API for the vet’s info. We have all the tools we need to do this, except we still need a way to know when all of the vet information has been returned - when this happens we’ll have all the information we need to create the view models to display the table view.
 
-## `ViewModelBuilder`
+## ViewModelBuilder
+
 ### Building view models from JSON models
+
 `ViewModelBuilder` is responsible for using the data service to fetch JSON models, the logic of the order that fetching needs to occur, formatting and localization required when combining the JSON models to form view models. The goal here is for the UI not to have to modify the view model. The pseudo code might read:
 
 1. Fetch all of the pets
@@ -136,7 +144,8 @@ We and we still need to use the pet's `vetId` to get the vet’s info. We can us
 1. Format and localize view model data
 1. Give the view models to the UI
 
-### `DispatchGroup`
+### DispatchGroup
+
 *Step 1* returns all of the pets at once, but *step 3* sends 0 to N async requests out and we can’t proceed until all responses are returned as specified in *step 4*. We use `DispatchGroup` to handle this:
 ```swift
 struct ViewModelBuilder {
@@ -161,9 +170,10 @@ struct ViewModelBuilder {
     }
 }
 ```
-Each time an async request for vet info is made a `group.enter()` call is made, and when we get the response we call  `group.leave()` is made. We then use the newly arrived vet info and combine it with the pet info to create a view model that is added to a list of view models `viewModels`. When all of the requests/responces are completed  `group.notifiy()` is called - this is point we hand off the list of accumulated view model to the UI.  It is crucial that the `group.enter()` and `group.leave()` calls match. I find the decoding logic insuring the requests/responces match is easier to reason about when it returns nil vs. throwing an exception.
+Each request for vet info is proceeded by `group.enter()`, and each response follwed by `group.leave()`. The newly arrived vet info is combined with the pet info to create a view model and it is appended to the `viewModels` array. When all of the requests/responces are completed  `group.notifiy()` is called - this is point the list of view model is passed to the UI.  It is crucial that the `group.enter()` and `group.leave()` calls match. I find the decoding logic insuring the requests/responces match is easier to reason about when it returns nil vs. throwing an exception.
 
 ### Setting the view model on a view
+
 The view or view controller has no idea about the view model formation, it just responds to the data being set with a reload.table e.g.
 ```swift
 class ViewController: UIViewController: UITableViewDataSource {
@@ -194,4 +204,5 @@ class ViewController: UIViewController: UITableViewDataSource {
     }
 ```
 ### UI that permits user interaction
+
 For simplicity, this example of `ViewModelBuilder` doesn’t implement code to handle when the user creates, updates, and or deletes data. The view model is responsible for data binding. The most common way this is dealt with is to use observers (e.g. KVO) or delegates. I typically prefer delegates but there are pros and cons to each approach, this is a topic for another time. Going forward I am excited about trying an [Rx approach](https://medium.com/flawless-app-stories/how-to-use-a-model-view-viewmodel-architecture-for-ios-46963c67be1b) to observers using a project like [Bond](https://github.com/DeclarativeHub/Bond).
