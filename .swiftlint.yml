@@ -1,0 +1,24 @@
+#   https://github.com/realm/SwiftLint
+
+excluded:
+- WeatherApp/zNavigator.swift
+
+line_length: 180
+# naming rules can set warnings/errors for min_length and max_length
+# additionally they can set excluded names
+type_name:
+  min_length: 4 # only warning
+  max_length: # warning and error
+    warning: 40
+    error: 50
+  excluded: iPhone # excluded via string
+identifier_name:
+  min_length: # only min_length
+    warning: 3 # only error
+  excluded: # excluded via string array
+    - vc
+    - URL
+    - url
+    - err
+    - req
+    - id
